@@ -1,6 +1,6 @@
 import subprocess
 import re
-import config  # Make sure to create config.py with your DB details
+import config 
 from config import live_connection, local_connection
 
 ################### FUNCTIONS START ###################
