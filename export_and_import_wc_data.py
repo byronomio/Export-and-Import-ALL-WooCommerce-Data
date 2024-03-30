@@ -115,6 +115,22 @@ def import_sql_dump(sql_file):
 
 ################### FUNCTIONS END ###################
 
+# Combine all SQL dumps into one file and then perform search and replace
+sql_dump_file = f"combined_sql_dump-{config.TIMESTAMP}.sql"
+
+# Define the mysqldump commands for each table
+dump_commands = {
+    'posts': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_posts --where=\"post_type IN ('shop_order', 'product')\" > {config.DUMPED_TABLE_PREFIX}_posts-{config.TIMESTAMP}.sql",
+    'product': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_posts --where=\"post_type='product'\" > {config.DUMPED_TABLE_PREFIX}_product-{config.TIMESTAMP}.sql",
+
+}
+
+run_mysqldump(dump_commands['posts'])
+run_mysqldump(dump_commands['product'])
+
+# Run the mysqldump for 'product' and extract product IDs
+product_ids = extract_ids_from_sql(f"{config.DUMPED_TABLE_PREFIX}_product-{config.TIMESTAMP}.sql", r"\((\d+),")
+
 # Use the function to get customer IDs
 customer_ids = get_customer_ids()
 
@@ -122,36 +138,27 @@ customer_ids = get_customer_ids()
 order_ids = extract_ids_from_sql(f"{config.DUMPED_TABLE_PREFIX}_posts-{config.TIMESTAMP}.sql", r"\((\d+),")
 
 temp_ids = {'order_ids': order_ids}
-
-# Run the mysqldump for 'product' and extract product IDs
-product_ids = extract_ids_from_sql(f"{config.DUMPED_TABLE_PREFIX}_product-{config.TIMESTAMP}.sql", r"\((\d+),")
-
 temp_product_ids = {'product_ids': product_ids}
 
 # Combine order and product IDs
 combined_ids = temp_ids['order_ids'] + temp_product_ids['product_ids']
 
-# Combine all SQL dumps into one file and then perform search and replace
-sql_dump_file = f"combined_sql_dump-{config.TIMESTAMP}.sql"
-
 # Define the mysqldump commands for each table
 dump_commands = {
-    'posts': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_posts --where=\"post_type IN ('shop_order', 'product')\" > {config.DUMPED_TABLE_PREFIX}_posts-{config.TIMESTAMP}.sql",
     'postmeta': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_postmeta --where=\"post_id IN ({','.join(combined_ids)})\" > {config.DUMPED_TABLE_PREFIX}_postmeta-{config.TIMESTAMP}.sql",
     'usermeta': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_usermeta --where=\"user_id IN ({','.join(customer_ids)})\" > {config.DUMPED_TABLE_PREFIX}_usermeta-{config.TIMESTAMP}.sql",
     'users': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_users --where=\"ID IN ({','.join(customer_ids)})\" > {config.DUMPED_TABLE_PREFIX}_users-{config.TIMESTAMP}.sql",
-    'product': f"mysqldump --insert-ignore -u {config.DB_USER} -p'{config.DB_PASSWORD}' -h {config.DB_HOST} --column-statistics=0 {config.DB_NAME} {config.TABLE_PREFIX}_posts --where=\"post_type='product'\" > {config.DUMPED_TABLE_PREFIX}_product-{config.TIMESTAMP}.sql",
+    'options': "with open('dump_options.py') as file: exec(file.read())"  # Define additional commands for other tables if necessary
 }
 
 # Create a list of SQL file names
 sql_files = [f"{config.DUMPED_TABLE_PREFIX}_{table}-{config.TIMESTAMP}.sql" for table in dump_commands.keys()]
 
 # Run mysqldump commands for specified tables
-run_mysqldump(dump_commands['posts'])
-run_mysqldump(dump_commands['product'])
 run_mysqldump(dump_commands['postmeta'])
 run_mysqldump(dump_commands['usermeta'])
 run_mysqldump(dump_commands['users'])
+exec(dump_commands['options'])
 
 # Combine SQL dump files into a single file
 combine_sql_dumps(sql_files, f"combined_sql_dump-{config.TIMESTAMP}.sql")
