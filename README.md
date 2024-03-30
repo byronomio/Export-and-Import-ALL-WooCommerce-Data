@@ -1,0 +1,2 @@
+# Export and Import ALL WooCommerce Data
+ This toolkit provides a set of Python scripts for exporting, cleaning, and importing WooCommerce data. It allows users to extract specific data from their WooCommerce databases, perform data cleaning and preparation operations, and import the processed data back into a WooCommerce database. The toolkit is designed to streamline the process of managing WooCommerce data, making it easier to handle large datasets or migrate data between different environments.
